@@ -3,7 +3,12 @@
 
 #include <png.h>
 #include <cstdio>
-
+#if defined(WIN32) || defined(WIN64)
+  #include <windows.h>
+#else
+  #include <sys/types.h>
+  #include <sys/stat.h>  
+#endif
 
 
 std::vector<std::vector<png_byte>>
@@ -36,7 +41,30 @@ void lionheart::PngDisplay::show(lionheart::SituationReport const& report, Blazo
   auto data = drawReport(report,p1,p2);
   char turn_number[5]; //= std::to_string(report.turns);
   sprintf(turn_number,"%03d",report.turns);
-  auto filename = "./png/" + output + "turn" + turn_number + ".png";
+  auto dirs = false;
+  auto directory = "./png/"+output;
+  #if defined(WIN32) || defined(WIN64)
+    bool status;
+    status = CreateDirectory("./png", NULL);
+    if(status||ERROR_ALREADY_EXISTS==GetLastError())
+    {
+      status = CreateDirectory(directory.c_str(), NULL);
+    }
+    dirs = (status||ERROR_ALREADY_EXISTS==GetLastError());
+  #else
+    int status;
+    status = mkdir("./png", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    if(status==0||errno==EEXIST)
+    {
+      status = mkdir(directory.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    }
+    dirs = (status==0||errno==EEXIST);
+  #endif 
+  std::string filename;
+  if(dirs)
+    filename = directory + "/turn" + turn_number + ".png";
+  else
+    filename = "./" + output + "turn" + turn_number + ".png";
   fp = fopen(filename.c_str(),"wb");
   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,nullptr,nullptr,nullptr);
   info_ptr = png_create_info_struct(png_ptr);
